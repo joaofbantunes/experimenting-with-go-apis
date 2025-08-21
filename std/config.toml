@@ -1,0 +1,11 @@
+name = "std-experimental-api"
+version = "0.0.1"
+[server]
+host = ""
+port = 8080
+[database]
+baseConnectionString = "will_be_overriden"
+user = "will_be_overriden"
+password = "will_be_overriden"
+[logging]
+defaultLevel = "info"
