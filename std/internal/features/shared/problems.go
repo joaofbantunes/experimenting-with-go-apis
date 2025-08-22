@@ -46,7 +46,7 @@ type ValidationError struct {
 
 func NewValidationProblem(ctx context.Context, title string, detail string, errors []ValidationError) *ValidationProblem {
 	return &ValidationProblem{
-		Type:    Validation,
+		Type:    ProblemGeneralValidation,
 		Status:  http.StatusBadRequest,
 		Title:   title,
 		Detail:  detail,
@@ -56,7 +56,7 @@ func NewValidationProblem(ctx context.Context, title string, detail string, erro
 }
 
 type ProblemEncoder interface {
-	EncodeProblem(ctx context.Context, w http.ResponseWriter, status int, problem *Problem)
+	EncodeProblem(ctx context.Context, w http.ResponseWriter, problem *Problem)
 	EncodeValidationProblem(ctx context.Context, w http.ResponseWriter, validationProblem *ValidationProblem)
 }
 
@@ -70,10 +70,10 @@ func NewProblemEncoder(loggerProvider func(string) *slog.Logger) ProblemEncoder 
 	}
 }
 
-func (pe *problemEncoder) EncodeProblem(ctx context.Context, w http.ResponseWriter, status int, problem *Problem) {
-	err := encodeProblem(w, status, problem)
+func (pe *problemEncoder) EncodeProblem(ctx context.Context, w http.ResponseWriter, problem *Problem) {
+	err := encodeProblem(w, problem.Status, problem)
 	if err != nil {
-		InternalServerError(ctx, w, pe.logger, err)
+		EncodeInternalServerError(ctx, w, pe.logger, err)
 		return
 	}
 }
@@ -81,7 +81,7 @@ func (pe *problemEncoder) EncodeProblem(ctx context.Context, w http.ResponseWrit
 func (pe *problemEncoder) EncodeValidationProblem(ctx context.Context, w http.ResponseWriter, validationProblem *ValidationProblem) {
 	err := encodeProblem(w, http.StatusBadRequest, validationProblem)
 	if err != nil {
-		InternalServerError(ctx, w, pe.logger, err)
+		EncodeInternalServerError(ctx, w, pe.logger, err)
 		return
 	}
 }

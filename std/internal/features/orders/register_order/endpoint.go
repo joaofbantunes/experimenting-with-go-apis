@@ -12,7 +12,7 @@ import (
 
 type orderItem struct {
 	DishID   uuid.UUID `json:"dishId"`
-	Quantity int       `json:"quantity"`
+	Quantity uint8     `json:"quantity"`
 }
 type body struct {
 	Items []orderItem `json:"items"`
@@ -24,32 +24,97 @@ type response struct {
 	ID uuid.UUID `json:"id"`
 }
 
+type unknownDishesError struct {
+	DishIds []uuid.UUID `json:"dishIds"`
+}
+
 func NewRegisterOrderEndpoint(
 	db *orders.DataAccess,
 	pe shared.ProblemEncoder,
-	loggerProvider func(name string) *slog.Logger) func(w http.ResponseWriter, r *http.Request) {
+	loggerProvider func(name string) *slog.Logger,
+	tp shared.TimeProvider) func(w http.ResponseWriter, r *http.Request) {
 	logger := loggerProvider("register_order_endpoint")
 	return func(w http.ResponseWriter, r *http.Request) {
-		req, problem := decodeAndValidate(r)
+		req, prob := decodeAndValidate(r)
 
-		if problem != nil {
-			pe.EncodeValidationProblem(r.Context(), w, problem)
+		if prob != nil {
+			pe.EncodeValidationProblem(r.Context(), w, prob)
 			return
 		}
 
-		err := shared.Encode(
+		dishIds := getDishIds(req.Body.Items)
+		dishRefs, err := db.GetDishesByID(r.Context(), dishIds)
+		if err != nil {
+			shared.EncodeInternalServerError(r.Context(), w, logger, err)
+			return
+		}
+		if len(dishRefs) != len(dishIds) {
+			encodeUnknownDishes(w, r, dishIds, dishRefs, pe)
+			return
+		}
+
+		order := orders.NewOrder(mapOrderItems(req.Body.Items, dishRefs), tp.Now())
+		// TODO: add event to outbox
+		err = db.RegisterOrder(r.Context(), order)
+
+		if err != nil {
+			shared.EncodeInternalServerError(r.Context(), w, logger, err)
+			return
+		}
+
+		err = shared.Encode(
 			w,
-			http.StatusOK,
+			http.StatusCreated,
 			response{
-				Greeting: "Hello, World!",
+				ID: order.ExternalId,
 			})
 
 		if err != nil {
-			shared.InternalServerError(r.Context(), w, logger, err)
+			shared.EncodeInternalServerError(r.Context(), w, logger, err)
 			return
 		}
 	}
 
+}
+
+func encodeUnknownDishes(w http.ResponseWriter, r *http.Request, dishIds []uuid.UUID, dishRefs map[uuid.UUID]orders.DishRef, pe shared.ProblemEncoder) {
+	missingIds := make([]uuid.UUID, 0)
+	for _, id := range dishIds {
+		if _, ok := dishRefs[id]; !ok {
+			missingIds = append(missingIds, id)
+		}
+	}
+	pe.EncodeProblem(
+		r.Context(),
+		w,
+		shared.NewProblem(
+			r.Context(),
+			shared.ProblemOrdersUnknownDishes,
+			http.StatusUnprocessableEntity,
+			"Some dishes are not known",
+			"Some dishes are not known",
+			unknownDishesError{DishIds: missingIds},
+		),
+	)
+}
+
+func getDishIds(items []orderItem) []uuid.UUID {
+	ids := make([]uuid.UUID, len(items))
+	for i, item := range items {
+		ids[i] = item.DishID
+	}
+	return ids
+}
+
+func mapOrderItems(items []orderItem, dishRefs map[uuid.UUID]orders.DishRef) []orders.OrderItem {
+	result := make([]orders.OrderItem, len(items))
+	for i, item := range items {
+		result[i] = orders.OrderItem{
+			DishId:   dishRefs[item.DishID].ID,
+			Quantity: item.Quantity,
+		}
+	}
+	return result
 }
 
 func decodeAndValidate(r *http.Request) (request, *shared.ValidationProblem) {

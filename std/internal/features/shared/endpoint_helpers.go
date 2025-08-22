@@ -25,7 +25,7 @@ func Decode[T any](r *http.Request) (T, error) {
 	return v, nil
 }
 
-func InternalServerError(ctx context.Context, w http.ResponseWriter, logger *slog.Logger, err error) {
+func EncodeInternalServerError(ctx context.Context, w http.ResponseWriter, logger *slog.Logger, err error) {
 	logger.ErrorContext(ctx, "internal server error", slog.Any("error", err))
 	http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 }

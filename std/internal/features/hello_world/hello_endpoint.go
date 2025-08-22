@@ -23,7 +23,7 @@ func NewHelloEndpoint(loggerProvider func(name string) *slog.Logger) func(w http
 			})
 
 		if err != nil {
-			shared.InternalServerError(r.Context(), w, logger, err)
+			shared.EncodeInternalServerError(r.Context(), w, logger, err)
 			return
 		}
 	}
