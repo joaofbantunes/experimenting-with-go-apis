@@ -7,5 +7,5 @@ import (
 )
 
 func addRoutes(mux *http.ServeMux, root *CompositionRoot) {
-	mux.HandleFunc("GET /hello", hello_world.GetHelloEndpoint(root.LoggerProvider))
+	mux.HandleFunc("GET /hello", hello_world.NewHelloEndpoint(root.LoggerProvider))
 }

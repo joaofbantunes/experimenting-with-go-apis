@@ -32,6 +32,8 @@ func run(
 
 	compositionRoot := internal.NewCompositionRoot(config)
 
+	compositionRoot.InitApp()
+
 	logger := compositionRoot.LoggerProvider("main")
 
 	srv := internal.NewServer(compositionRoot)

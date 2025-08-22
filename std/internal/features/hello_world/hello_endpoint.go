@@ -7,7 +7,7 @@ import (
 	"github.com/joaofbantunes/experimenting-with-go-apis/std/internal/features/shared"
 )
 
-func GetHelloEndpoint(loggerProvider func(name string) *slog.Logger) func(w http.ResponseWriter, r *http.Request) {
+func NewHelloEndpoint(loggerProvider func(name string) *slog.Logger) func(w http.ResponseWriter, r *http.Request) {
 	logger := loggerProvider("get_hello_endpoint")
 	return func(w http.ResponseWriter, r *http.Request) {
 
@@ -23,7 +23,7 @@ func GetHelloEndpoint(loggerProvider func(name string) *slog.Logger) func(w http
 			})
 
 		if err != nil {
-			shared.InternalServerError(w, logger, err)
+			shared.InternalServerError(r.Context(), w, logger, err)
 			return
 		}
 	}
