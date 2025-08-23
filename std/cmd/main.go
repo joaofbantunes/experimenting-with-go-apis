@@ -30,9 +30,16 @@ func run(
 		return err
 	}
 
-	compositionRoot := internal.NewCompositionRoot(config)
+	compositionRoot, err := internal.NewCompositionRoot(config)
 
-	compositionRoot.InitApp()
+	if err != nil {
+		return err
+	}
+
+	err = compositionRoot.InitApp(ctx)
+	if err != nil {
+		return err
+	}
 
 	logger := compositionRoot.LoggerProvider("main")
 

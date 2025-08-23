@@ -2,11 +2,13 @@ package orders
 
 import (
 	"context"
+	"encoding/json"
 	"log/slog"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/joaofbantunes/experimenting-with-go-apis/std/internal/features/shared"
 )
 
 type DataAccess struct {
@@ -49,7 +51,7 @@ func (db *DataAccess) GetDishesByID(ctx context.Context, ids []uuid.UUID) (map[u
 	return dishes, nil
 }
 
-func (db *DataAccess) RegisterOrder(ctx context.Context, order Order) error {
+func (db *DataAccess) RegisterOrder(ctx context.Context, order Order, event OrderRegistered) error {
 	// Start a transaction
 	tx, err := db.pool.Begin(ctx)
 	if err != nil {
@@ -62,14 +64,14 @@ func (db *DataAccess) RegisterOrder(ctx context.Context, order Order) error {
 		}
 	}(tx, ctx)
 
-	dishIds := make([]int64, len(order.Items))
+	dishIds := make([]uuid.UUID, len(order.Items))
 	quantities := make([]uint8, len(order.Items))
 	for i, item := range order.Items {
 		dishIds[i] = item.DishId
 		quantities[i] = item.Quantity
 	}
 
-	_, err = db.pool.Exec(ctx,
+	_, err = tx.Conn().Exec(ctx,
 		// language=postgresql
 		`WITH inserted_order AS (
 			INSERT INTO orders (external_id, status, registered_at)
@@ -77,13 +79,45 @@ func (db *DataAccess) RegisterOrder(ctx context.Context, order Order) error {
 			RETURNING id
 		)
 		INSERT INTO order_items (order_id, dish_id, quantity)
-		SELECT inserted_order.id, d, q
-		FROM inserted_order, UNNEST($4::bigint[], $5::smallint[]) AS t(d, q)`,
-		order.ExternalId, order.Status, order.RegisteredAt, dishIds, quantities)
+		SELECT inserted_order.id, d.id, t.q
+		FROM 
+		    inserted_order,
+		    UNNEST($4::uuid[], $5::smallint[]) AS t(d, q)
+				INNER JOIN dishes d ON d.external_id = t.d;`,
+		order.ID,
+		order.Status,
+		order.RegisteredAt,
+		dishIds,
+		quantities)
 
 	if err != nil {
 		return err
 	}
 
+	msg, err := db.mapRegisteredMsg(event)
+	if err != nil {
+		return err
+	}
+
+	err = shared.InsertOutboxMessage(ctx, tx.Conn(), msg)
+	if err != nil {
+		return err
+	}
+
 	return tx.Commit(ctx)
+}
+
+// in this case we don't need info from the aggregate, otherwise we would pass it as a parameter
+func (db *DataAccess) mapRegisteredMsg(event OrderRegistered) (shared.OutboxMessage, error) {
+	payload, err := json.Marshal(event)
+	if err != nil {
+		return shared.OutboxMessage{}, err
+	}
+
+	return shared.NewOutboxMessage(
+		"OrderRegistered",
+		payload,
+		event.OccurredAt,
+		nil, // TODO: trace context
+	), nil
 }

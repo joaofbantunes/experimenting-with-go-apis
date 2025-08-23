@@ -53,7 +53,7 @@ func NewRegisterOrderEndpoint(
 			return
 		}
 
-		order := orders.NewOrder(mapOrderItems(req.Body.Items, dishRefs), tp.Now())
+		order, event := orders.RegisterOrder(mapOrderItems(req.Body.Items), tp.Now())
 		// TODO: add event to outbox
 		err = db.RegisterOrder(r.Context(), order)
 
@@ -106,11 +106,11 @@ func getDishIds(items []orderItem) []uuid.UUID {
 	return ids
 }
 
-func mapOrderItems(items []orderItem, dishRefs map[uuid.UUID]orders.DishRef) []orders.OrderItem {
+func mapOrderItems(items []orderItem) []orders.OrderItem {
 	result := make([]orders.OrderItem, len(items))
 	for i, item := range items {
 		result[i] = orders.OrderItem{
-			DishId:   dishRefs[item.DishID].ID,
+			DishId:   item.DishID,
 			Quantity: item.Quantity,
 		}
 	}

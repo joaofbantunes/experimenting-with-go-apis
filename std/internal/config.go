@@ -28,10 +28,9 @@ type ServerConfig struct {
 }
 
 type DatabaseConfig struct {
-	User     string
-	Password string
-	Address  string
-	Name     string
+	BaseConnStr string
+	User        string
+	Password    string
 }
 
 type LoggingConfig struct {
@@ -44,6 +43,8 @@ func LoadConfig() (*Config, error) {
 	if err != nil {
 		log.Fatalf("failed to fetch environment: %v", err)
 	}
+
+	println("Environment:", viper.GetString("environment"))
 
 	readConfigFiles(
 		"config.toml",

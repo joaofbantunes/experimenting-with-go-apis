@@ -4,7 +4,7 @@ version = "0.0.1"
 host = ""
 port = 8080
 [database]
-baseConnectionString = "will_be_overriden"
+baseConnStr = "will_be_overriden"
 user = "will_be_overriden"
 password = "will_be_overriden"
 [logging]

@@ -18,29 +18,42 @@ const (
 )
 
 type Order struct {
-	Id           int64
-	ExternalId   uuid.UUID
+	ID           uuid.UUID
 	Items        []OrderItem
 	Status       OrderStatus
 	RegisteredAt time.Time
 }
 
-func NewOrder(items []OrderItem, now time.Time) Order {
-	return Order{
-		ExternalId:   uuid.New(),
+func RegisterOrder(items []OrderItem, now time.Time) (Order, OrderRegistered) {
+	order := Order{
+		ID:           uuid.New(),
 		Items:        items,
 		Status:       OrderStatusRegistered,
 		RegisteredAt: now,
 	}
+
+	event := OrderRegistered{
+		OrderId:    order.ID,
+		OccurredAt: now,
+		Items:      make([]OrderRegisteredItem, len(items)),
+	}
+
+	for i, item := range items {
+		event.Items[i] = OrderRegisteredItem{
+			DishId:   item.DishId,
+			Quantity: item.Quantity,
+		}
+	}
+
+	return order, event
 }
 
 type OrderItem struct {
-	OrderId  int64
-	DishId   int64
+	DishId   uuid.UUID
 	Quantity uint8
 }
 
-func NewOrderItem(dishId int64, quantity uint8) OrderItem {
+func NewOrderItem(dishId uuid.UUID, quantity uint8) OrderItem {
 	return OrderItem{
 		DishId:   dishId,
 		Quantity: quantity,
