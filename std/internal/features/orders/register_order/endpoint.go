@@ -54,8 +54,8 @@ func NewRegisterOrderEndpoint(
 		}
 
 		order, event := orders.RegisterOrder(mapOrderItems(req.Body.Items), tp.Now())
-		// TODO: add event to outbox
-		err = db.RegisterOrder(r.Context(), order)
+
+		err = db.RegisterOrder(r.Context(), order, event)
 
 		if err != nil {
 			shared.EncodeInternalServerError(r.Context(), w, logger, err)
@@ -66,7 +66,7 @@ func NewRegisterOrderEndpoint(
 			w,
 			http.StatusCreated,
 			response{
-				ID: order.ExternalId,
+				ID: order.ID,
 			})
 
 		if err != nil {

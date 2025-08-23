@@ -3,6 +3,7 @@ package orders
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"log/slog"
 
 	"github.com/google/uuid"
@@ -59,7 +60,7 @@ func (db *DataAccess) RegisterOrder(ctx context.Context, order Order, event Orde
 	}
 	defer func(tx pgx.Tx, ctx context.Context) {
 		err := tx.Rollback(ctx)
-		if err != nil {
+		if err != nil && !errors.Is(err, pgx.ErrTxClosed) {
 			db.logger.ErrorContext(ctx, "failed to rollback transaction", slog.Any("error", err))
 		}
 	}(tx, ctx)

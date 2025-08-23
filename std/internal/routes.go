@@ -9,7 +9,7 @@ import (
 
 func addRoutes(mux *http.ServeMux, root *CompositionRoot) {
 	mux.HandleFunc("GET /hello", hello_world.NewHelloEndpoint(root.LoggerProvider))
-	mux.HandleFunc("POST /orders", register_order.NewRegisterOrderEndpoint(
+	mux.HandleFunc("POST /api/v1/orders", register_order.NewRegisterOrderEndpoint(
 		root.OrdersDataAccess,
 		root.ProblemEncoder,
 		root.LoggerProvider,
