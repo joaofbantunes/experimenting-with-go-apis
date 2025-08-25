@@ -6,15 +6,15 @@ import (
 	"github.com/google/uuid"
 )
 
-type OrderStatus int
+type OrderStatus string
 
 const (
-	OrderStatusRegistered        = OrderStatus(10)
-	OrderStatusInPreparation     = OrderStatus(20)
-	OrderStatusWaitingForCourier = OrderStatus(30)
-	OrderStatusOutForDelivery    = OrderStatus(40)
-	OrderStatusCompleted         = OrderStatus(50)
-	OrderStatusCancelled         = OrderStatus(60)
+	OrderStatusRegistered        = OrderStatus("registered")
+	OrderStatusInPreparation     = OrderStatus("in_preparation")
+	OrderStatusWaitingForCourier = OrderStatus("waiting_for_courier")
+	OrderStatusOutForDelivery    = OrderStatus("out_for_delivery")
+	OrderStatusCompleted         = OrderStatus("completed")
+	OrderStatusCancelled         = OrderStatus("cancelled")
 )
 
 type Order struct {
@@ -24,15 +24,15 @@ type Order struct {
 	RegisteredAt time.Time
 }
 
-func RegisterOrder(items []OrderItem, now time.Time) (Order, OrderRegistered) {
-	order := Order{
+func RegisterOrder(items []OrderItem, now time.Time) (*Order, *OrderRegistered) {
+	order := &Order{
 		ID:           uuid.New(),
 		Items:        items,
 		Status:       OrderStatusRegistered,
 		RegisteredAt: now,
 	}
 
-	event := OrderRegistered{
+	event := &OrderRegistered{
 		OrderId:    order.ID,
 		OccurredAt: now,
 		Items:      make([]OrderRegisteredItem, len(items)),
@@ -40,7 +40,7 @@ func RegisterOrder(items []OrderItem, now time.Time) (Order, OrderRegistered) {
 
 	for i, item := range items {
 		event.Items[i] = OrderRegisteredItem{
-			DishId:   item.DishId,
+			DishId:   item.DishID,
 			Quantity: item.Quantity,
 		}
 	}
@@ -48,14 +48,29 @@ func RegisterOrder(items []OrderItem, now time.Time) (Order, OrderRegistered) {
 	return order, event
 }
 
+func (o *Order) Cancel(now time.Time) (*Order, *OrderCancelled, error) {
+	if o.Status != OrderStatusRegistered {
+		return o, nil, ErrOrderNoLongerCancellable{}
+	}
+
+	o.Status = OrderStatusCancelled
+
+	event := &OrderCancelled{
+		OrderId:    o.ID,
+		OccurredAt: now,
+	}
+
+	return o, event, nil
+}
+
 type OrderItem struct {
-	DishId   uuid.UUID
+	DishID   uuid.UUID
 	Quantity uint8
 }
 
-func NewOrderItem(dishId uuid.UUID, quantity uint8) OrderItem {
+func NewOrderItem(dishID uuid.UUID, quantity uint8) OrderItem {
 	return OrderItem{
-		DishId:   dishId,
+		DishID:   dishID,
 		Quantity: quantity,
 	}
 }
@@ -63,4 +78,10 @@ func NewOrderItem(dishId uuid.UUID, quantity uint8) OrderItem {
 type DishRef struct {
 	ID         int64
 	ExternalID uuid.UUID
+}
+
+type ErrOrderNoLongerCancellable struct{}
+
+func (e ErrOrderNoLongerCancellable) Error() string {
+	return "order no longer cancellable"
 }

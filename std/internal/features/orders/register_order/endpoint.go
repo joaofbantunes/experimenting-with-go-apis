@@ -12,7 +12,7 @@ import (
 
 type orderItem struct {
 	DishID   uuid.UUID `json:"dishId"`
-	Quantity uint8     `json:"quantity"`
+	Quantity int       `json:"quantity"` // using the int type here to capture negative and large values for validation
 }
 type body struct {
 	Items []orderItem `json:"items"`
@@ -74,7 +74,6 @@ func NewRegisterOrderEndpoint(
 			return
 		}
 	}
-
 }
 
 func encodeUnknownDishes(w http.ResponseWriter, r *http.Request, dishIds []uuid.UUID, dishRefs map[uuid.UUID]orders.DishRef, pe shared.ProblemEncoder) {
@@ -110,8 +109,8 @@ func mapOrderItems(items []orderItem) []orders.OrderItem {
 	result := make([]orders.OrderItem, len(items))
 	for i, item := range items {
 		result[i] = orders.OrderItem{
-			DishId:   item.DishID,
-			Quantity: item.Quantity,
+			DishID:   item.DishID,
+			Quantity: uint8(item.Quantity),
 		}
 	}
 	return result
@@ -143,13 +142,19 @@ func decodeAndValidate(r *http.Request) (request, *shared.ValidationProblem) {
 	for i, item := range b.Items {
 		if item.DishID == uuid.Nil {
 			errors = append(errors, shared.ValidationError{
-				Description: "Dish ID is required",
+				Description: "Order item missing dish is required",
 				Pointer:     shared.JsonPointerForSegments([]string{"items", strconv.Itoa(i), "dishId"}).String(),
 			})
 		}
 		if item.Quantity <= 0 {
 			errors = append(errors, shared.ValidationError{
-				Description: "Quantity must be greater than zero",
+				Description: "Order item quantity must be greater than zero",
+				Pointer:     shared.JsonPointerForSegments([]string{"items", strconv.Itoa(i), "quantity"}).String(),
+			})
+		}
+		if item.Quantity > 100 {
+			errors = append(errors, shared.ValidationError{
+				Description: "Order item quantity must be less than or equal to 100",
 				Pointer:     shared.JsonPointerForSegments([]string{"items", strconv.Itoa(i), "quantity"}).String(),
 			})
 		}

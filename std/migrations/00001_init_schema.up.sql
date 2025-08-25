@@ -8,11 +8,13 @@ CREATE TABLE dishes
 
 CREATE UNIQUE INDEX ix_dishes_external_id ON dishes (external_id);
 
+CREATE TYPE order_status AS ENUM ('registered', 'in_preparation', 'waiting_for_courier', 'out_for_delivery', 'completed', 'cancelled');
+
 CREATE TABLE orders
 (
     id            bigint GENERATED ALWAYS AS IDENTITY,
     external_id   uuid                     NOT NULL,
-    status        integer                  NOT NULL,
+    status        order_status             NOT NULL,
     registered_at timestamp with time zone NOT NULL,
     CONSTRAINT pk_orders PRIMARY KEY (id)
 );

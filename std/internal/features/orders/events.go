@@ -16,3 +16,8 @@ type OrderRegistered struct {
 	Items      []OrderRegisteredItem
 	OccurredAt time.Time
 }
+
+type OrderCancelled struct {
+	OrderId    uuid.UUID
+	OccurredAt time.Time
+}
