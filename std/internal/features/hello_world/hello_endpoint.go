@@ -7,9 +7,9 @@ import (
 	"github.com/joaofbantunes/experimenting-with-go-apis/std/internal/features/shared"
 )
 
-func NewHelloEndpoint(loggerProvider func(name string) *slog.Logger) func(w http.ResponseWriter, r *http.Request) {
+func NewHelloEndpoint(loggerProvider func(name string) *slog.Logger) http.Handler {
 	logger := loggerProvider("get_hello_endpoint")
-	return func(w http.ResponseWriter, r *http.Request) {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
 		type response struct {
 			Greeting string `json:"greeting"`
@@ -26,5 +26,5 @@ func NewHelloEndpoint(loggerProvider func(name string) *slog.Logger) func(w http
 			shared.EncodeInternalServerError(r.Context(), w, logger, err)
 			return
 		}
-	}
+	})
 }

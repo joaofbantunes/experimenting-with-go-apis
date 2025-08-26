@@ -28,9 +28,9 @@ func NewGetOrderDetailsEndpoint(
 	db *orders.DataAccess,
 	pe shared.ProblemEncoder,
 	loggerProvider func(name string) *slog.Logger,
-) func(w http.ResponseWriter, r *http.Request) {
+) http.Handler {
 	logger := loggerProvider("get_order_details_endpoint")
-	return func(w http.ResponseWriter, r *http.Request) {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		req, prob := decodeAndValidate(r)
 
 		if prob != nil {
@@ -78,7 +78,7 @@ func NewGetOrderDetailsEndpoint(
 			shared.EncodeInternalServerError(r.Context(), w, logger, err)
 			return
 		}
-	}
+	})
 }
 
 func decodeAndValidate(r *http.Request) (request, *shared.ValidationProblem) {

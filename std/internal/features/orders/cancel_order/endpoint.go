@@ -18,9 +18,9 @@ func NewCancelOrderEndpoint(
 	db *orders.DataAccess,
 	pe shared.ProblemEncoder,
 	loggerProvider func(name string) *slog.Logger,
-	tp shared.TimeProvider) func(w http.ResponseWriter, r *http.Request) {
+	tp shared.TimeProvider) http.Handler {
 	logger := loggerProvider("cancel_order_endpoint")
-	return func(w http.ResponseWriter, r *http.Request) {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		req, prob := decodeAndValidate(r)
 
 		if prob != nil {
@@ -68,7 +68,7 @@ func NewCancelOrderEndpoint(
 		err = db.UpdateOrder(r.Context(), o, event)
 
 		w.WriteHeader(http.StatusNoContent)
-	}
+	})
 }
 func decodeAndValidate(r *http.Request) (request, *shared.ValidationProblem) {
 	orderId, err := uuid.Parse(r.PathValue("orderId"))

@@ -32,9 +32,9 @@ func NewRegisterOrderEndpoint(
 	db *orders.DataAccess,
 	pe shared.ProblemEncoder,
 	loggerProvider func(name string) *slog.Logger,
-	tp shared.TimeProvider) func(w http.ResponseWriter, r *http.Request) {
+	tp shared.TimeProvider) http.Handler {
 	logger := loggerProvider("register_order_endpoint")
-	return func(w http.ResponseWriter, r *http.Request) {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		req, prob := decodeAndValidate(r)
 
 		if prob != nil {
@@ -73,7 +73,7 @@ func NewRegisterOrderEndpoint(
 			shared.EncodeInternalServerError(r.Context(), w, logger, err)
 			return
 		}
-	}
+	})
 }
 
 func encodeUnknownDishes(w http.ResponseWriter, r *http.Request, dishIds []uuid.UUID, dishRefs map[uuid.UUID]orders.DishRef, pe shared.ProblemEncoder) {
