@@ -27,7 +27,7 @@ func Authenticate(loggerProvider func(name string) *slog.Logger) shared.Middlewa
 					} else {
 						user := NewUser(id)
 						r = r.WithContext(ContextWithUser(r.Context(), user))
-						logger.DebugContext(r.Context(), "authenticated user", slog.Any("user_id", id))
+						logger.DebugContext(r.Context(), "authenticated user", slog.String("user_id", idString))
 					}
 				}
 			}
@@ -56,7 +56,7 @@ func RequirePermission(permission string, loggerProvider func(name string) *slog
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// TODO: check if the user has the required permission
-			logger.Debug("Checking permission", slog.String("permission", permission))
+			logger.DebugContext(r.Context(), "Checking permission", slog.String("permission", permission))
 			next.ServeHTTP(w, r)
 		})
 	}

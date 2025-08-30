@@ -30,18 +30,19 @@ func run(
 		return err
 	}
 
-	compositionRoot, err := internal.NewCompositionRoot(config)
+	compositionRoot, err := internal.NewCompositionRoot(ctx, config)
 
 	if err != nil {
 		return err
 	}
 
-	err = compositionRoot.InitApp(ctx)
-	if err != nil {
-		return err
-	}
-
-	logger := compositionRoot.LoggerProvider("main")
+	logger := compositionRoot.CreateLogger("main")
+	defer func(compositionRoot *internal.CompositionRoot, ctx context.Context) {
+		err := compositionRoot.Shutdown(ctx)
+		if err != nil {
+			logger.ErrorContext(ctx, "error during shutdown", slog.Any("error", err))
+		}
+	}(compositionRoot, ctx)
 
 	srv := internal.NewServer(compositionRoot)
 	httpServer := &http.Server{

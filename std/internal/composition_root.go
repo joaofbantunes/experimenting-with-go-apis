@@ -3,46 +3,60 @@ package internal
 import (
 	"context"
 	"log/slog"
-	"sync"
 
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joaofbantunes/experimenting-with-go-apis/std/internal/features/orders"
 	"github.com/joaofbantunes/experimenting-with-go-apis/std/internal/features/shared"
+	"go.opentelemetry.io/otel/metric"
+	"go.opentelemetry.io/otel/trace"
 )
 
 type CompositionRoot struct {
 	Config           *Config
-	LoggerProvider   func(string) *slog.Logger
 	OrdersDataAccess *orders.DataAccess
 	ProblemEncoder   shared.ProblemEncoder
 	TimeProvider     shared.TimeProvider
-	pool             *pgxpool.Pool
-	once             sync.Once
+	o11y             *O11yContext
 }
 
-func NewCompositionRoot(config *Config) (*CompositionRoot, error) {
+func (root *CompositionRoot) CreateLogger(name string) *slog.Logger {
+	return root.o11y.LoggerProvider(name)
+}
+
+func (root *CompositionRoot) CreateTracer(name string) trace.Tracer {
+	return root.o11y.TracerProvider(name)
+}
+
+func (root *CompositionRoot) CreateMeter(name string) metric.Meter {
+	return root.o11y.MeterProvider(name)
+}
+
+func (root *CompositionRoot) Shutdown(ctx context.Context) error {
+	return root.o11y.Shutdown(ctx)
+}
+
+func NewCompositionRoot(ctx context.Context, config *Config) (*CompositionRoot, error) {
+	o11y, err := SetupOTelSDK(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	pool, err := CreatePool(ctx, config)
+	if err != nil {
+		return nil, err
+	}
+
 	root := &CompositionRoot{
-		Config:         config,
-		LoggerProvider: CreateLogger,
-		ProblemEncoder: shared.NewProblemEncoder(CreateLogger),
-		TimeProvider:   shared.NewSystemTimeProvider(),
+		Config:       config,
+		o11y:         o11y,
+		TimeProvider: shared.NewSystemTimeProvider(),
+	}
+	root.ProblemEncoder = shared.NewProblemEncoder(root.CreateLogger)
+	root.OrdersDataAccess = orders.NewDataAccess(pool, root.CreateLogger)
+
+	err = MigrateDB(ctx, pool, root.CreateLogger("migrations"), root.CreateTracer("migrations"))
+	if err != nil {
+		return nil, err
 	}
 
 	return root, nil
-}
-
-func (root *CompositionRoot) InitApp(ctx context.Context) error {
-	var err error
-	root.once.Do(func() {
-		root.pool, err = CreatePool(ctx, root.Config)
-		if err != nil {
-			return
-		}
-		err = MigrateDB(ctx, root.pool, root.LoggerProvider("migrations"))
-		if err != nil {
-			return
-		}
-		root.OrdersDataAccess = orders.NewDataAccess(root.pool, root.LoggerProvider)
-	})
-	return err
 }

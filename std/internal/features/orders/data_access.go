@@ -69,12 +69,7 @@ func (db *DataAccess) GetOrderByID(ctx context.Context, id uuid.UUID) (*Order, b
 		WHERE o.external_id = $1`, id)
 
 	br := db.pool.SendBatch(ctx, batch)
-	defer func(br pgx.BatchResults) {
-		err := br.Close()
-		if err != nil {
-			db.logger.ErrorContext(ctx, "failed to close batch", slog.Any("error", err))
-		}
-	}(br)
+	defer shared.Close(ctx, br, db.logger)
 
 	var order Order
 	err := br.QueryRow().Scan(&order.ID, &order.Status, &order.RegisteredAt)

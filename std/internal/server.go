@@ -5,6 +5,7 @@ import (
 
 	"github.com/MarceloPetrucio/go-scalar-api-reference"
 	"github.com/joaofbantunes/experimenting-with-go-apis/std/internal/features/shared"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 
 	"log/slog"
 	"net/http"
@@ -13,10 +14,11 @@ import (
 func NewServer(compositionRoot *CompositionRoot) http.Handler {
 	mux := http.NewServeMux()
 	addRoutes(mux, compositionRoot)
-	addScalar(mux, compositionRoot.LoggerProvider("scalar"))
+	addScalar(mux, compositionRoot.CreateLogger("scalar"))
 	var handler http.Handler = mux
 	// TODO: add middleware here if needed
 	// handler = someMiddleware(handler)
+	handler = otelhttp.NewHandler(handler, "/")
 	return handler
 }
 
