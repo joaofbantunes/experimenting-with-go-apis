@@ -2,6 +2,7 @@ package internal
 
 import (
 	"context"
+	"io"
 	"log/slog"
 
 	"github.com/joaofbantunes/experimenting-with-go-apis/std/internal/features/orders"
@@ -34,8 +35,12 @@ func (root *CompositionRoot) Shutdown(ctx context.Context) error {
 	return root.o11y.Shutdown(ctx)
 }
 
-func NewCompositionRoot(ctx context.Context, config *Config) (*CompositionRoot, error) {
-	o11y, err := SetupOTelSDK(ctx)
+func NewCompositionRoot(
+	ctx context.Context,
+	config *Config,
+	getenv func(string) string,
+	stdout io.Writer) (*CompositionRoot, error) {
+	o11y, err := SetupOTelSDK(ctx, getenv, stdout)
 	if err != nil {
 		return nil, err
 	}

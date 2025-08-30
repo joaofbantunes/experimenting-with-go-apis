@@ -3,6 +3,7 @@ package internal
 import (
 	"context"
 	"errors"
+	"io"
 	"log/slog"
 	"os"
 
@@ -33,7 +34,7 @@ type O11yContext struct {
 
 // SetupOTelSDK sets up OpenTelemetry SDK with trace, metric, and log providers.
 // It returns a struct with providers for the signals, as well as a shutdown function that should be called to clean up resources.
-func SetupOTelSDK(ctx context.Context) (o11y *O11yContext, err error) {
+func SetupOTelSDK(ctx context.Context, getenv func(string) string, stdout io.Writer) (o11y *O11yContext, err error) {
 	var shutdownFuncs []func(context.Context) error
 
 	// shutdown calls cleanup functions registered via shutdownFuncs.
@@ -61,7 +62,7 @@ func SetupOTelSDK(ctx context.Context) (o11y *O11yContext, err error) {
 	if err != nil {
 		return nil, err
 	}
-	environment := os.Getenv("APP_ENV")
+	environment := getenv("APP_ENV")
 
 	r := resource.NewWithAttributes(
 		semconv.SchemaURL,
@@ -89,7 +90,7 @@ func SetupOTelSDK(ctx context.Context) (o11y *O11yContext, err error) {
 	otel.SetMeterProvider(meterProvider)
 
 	// Set up logger provider.
-	loggerProvider, err := newLoggerProvider(ctx, r)
+	loggerProvider, err := newLoggerProvider(ctx, r, stdout)
 	if err != nil {
 		handleErr(err)
 		return
@@ -100,7 +101,7 @@ func SetupOTelSDK(ctx context.Context) (o11y *O11yContext, err error) {
 	return &O11yContext{
 		Shutdown: shutdown,
 		LoggerProvider: func(name string) *slog.Logger {
-			consoleHandler := slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}).WithAttrs([]slog.Attr{slog.String("logger_name", name)})
+			consoleHandler := slog.NewTextHandler(stdout, &slog.HandlerOptions{Level: slog.LevelDebug}).WithAttrs([]slog.Attr{slog.String("logger_name", name)})
 			otlpHandler := otelslog.NewHandler(name)
 			return slog.New(slogmulti.Fanout(consoleHandler, otlpHandler))
 		},
@@ -158,9 +159,9 @@ func newMeterProvider(ctx context.Context, r *resource.Resource) (*metric.MeterP
 	return meterProvider, nil
 }
 
-func newLoggerProvider(ctx context.Context, r *resource.Resource) (*log.LoggerProvider, error) {
+func newLoggerProvider(ctx context.Context, r *resource.Resource, stdout io.Writer) (*log.LoggerProvider, error) {
 	// fanning out through slog, because otel log exporter only exports json
-	//consoleLogExporter, err := stdoutlog.New()
+	// consoleLogExporter, err := stdoutlog.New(stdoutlog.WithWriter(stdout))
 	//if err != nil {
 	//	return nil, err
 	//}

@@ -30,7 +30,7 @@ func run(
 		return err
 	}
 
-	compositionRoot, err := internal.NewCompositionRoot(ctx, config)
+	compositionRoot, err := internal.NewCompositionRoot(ctx, config, getenv, stdout)
 
 	if err != nil {
 		return err
