@@ -6,13 +6,13 @@ import (
 	"log/slog"
 	"os"
 
+	"github.com/samber/slog-multi"
 	"go.opentelemetry.io/contrib/bridges/otelslog"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
-	"go.opentelemetry.io/otel/exporters/stdout/stdoutlog"
 	"go.opentelemetry.io/otel/log/global"
 	apiMetric "go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/propagation"
@@ -100,7 +100,9 @@ func SetupOTelSDK(ctx context.Context) (o11y *O11yContext, err error) {
 	return &O11yContext{
 		Shutdown: shutdown,
 		LoggerProvider: func(name string) *slog.Logger {
-			return otelslog.NewLogger(name)
+			consoleHandler := slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}).WithAttrs([]slog.Attr{slog.String("logger_name", name)})
+			otlpHandler := otelslog.NewHandler(name)
+			return slog.New(slogmulti.Fanout(consoleHandler, otlpHandler))
 		},
 		TracerProvider: func(name string) apiTrace.Tracer {
 			return tracerProvider.Tracer(name)
@@ -157,10 +159,11 @@ func newMeterProvider(ctx context.Context, r *resource.Resource) (*metric.MeterP
 }
 
 func newLoggerProvider(ctx context.Context, r *resource.Resource) (*log.LoggerProvider, error) {
-	consoleLogExporter, err := stdoutlog.New()
-	if err != nil {
-		return nil, err
-	}
+	// fanning out through slog, because otel log exporter only exports json
+	//consoleLogExporter, err := stdoutlog.New()
+	//if err != nil {
+	//	return nil, err
+	//}
 	grpcLogExporter, err := otlploggrpc.New(ctx)
 	if err != nil {
 		return nil, err
@@ -168,7 +171,7 @@ func newLoggerProvider(ctx context.Context, r *resource.Resource) (*log.LoggerPr
 
 	loggerProvider := log.NewLoggerProvider(
 		log.WithResource(r),
-		log.WithProcessor(log.NewBatchProcessor(consoleLogExporter)),
+		// log.WithProcessor(log.NewBatchProcessor(consoleLogExporter)),
 		log.WithProcessor(log.NewBatchProcessor(grpcLogExporter)),
 	)
 	return loggerProvider, nil

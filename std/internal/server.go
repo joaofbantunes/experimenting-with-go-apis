@@ -3,27 +3,30 @@ package internal
 import (
 	"fmt"
 
+	"log/slog"
+	"net/http"
+
 	"github.com/MarceloPetrucio/go-scalar-api-reference"
 	"github.com/joaofbantunes/experimenting-with-go-apis/std/internal/features/shared"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
-
-	"log/slog"
-	"net/http"
 )
 
 func NewServer(compositionRoot *CompositionRoot) http.Handler {
 	mux := http.NewServeMux()
-	addRoutes(mux, compositionRoot)
-	addScalar(mux, compositionRoot.CreateLogger("scalar"))
-	var handler http.Handler = mux
-	// TODO: add middleware here if needed
-	// handler = someMiddleware(handler)
-	handler = otelhttp.NewHandler(handler, "/")
-	return handler
+
+	// replacement for mux.Handle to enrich traces with route pattern
+	handle := func(pattern string, handler http.Handler) {
+		instrumented := otelhttp.NewHandler(handler, pattern)
+		instrumented = otelhttp.WithRouteTag(pattern, instrumented)
+		mux.Handle(pattern, instrumented)
+	}
+	addRoutes(handle, compositionRoot)
+	addScalar(handle, compositionRoot.CreateLogger("scalar"))
+	return mux
 }
 
-func addScalar(mux *http.ServeMux, logger *slog.Logger) {
-	mux.HandleFunc("GET /scalar", func(w http.ResponseWriter, r *http.Request) {
+func addScalar(handle func(pattern string, handler http.Handler), logger *slog.Logger) {
+	handle("GET /scalar", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		htmlContent, err := scalar.ApiReferenceHTML(&scalar.Options{
 			SpecURL: "./api/v1.yaml",
 			CustomOptions: scalar.CustomOptions{
@@ -41,5 +44,5 @@ func addScalar(mux *http.ServeMux, logger *slog.Logger) {
 			shared.EncodeInternalServerError(r.Context(), w, logger, err)
 			return
 		}
-	})
+	}))
 }

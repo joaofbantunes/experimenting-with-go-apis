@@ -11,13 +11,13 @@ import (
 	"github.com/joaofbantunes/experimenting-with-go-apis/std/internal/features/shared/auth"
 )
 
-func addRoutes(mux *http.ServeMux, root *CompositionRoot) {
-	mux.Handle("GET /hello", hello_world.NewHelloEndpoint(root.CreateLogger))
+func addRoutes(handle func(pattern string, handler http.Handler), root *CompositionRoot) {
+	handle("GET /hello", hello_world.NewHelloEndpoint(root.CreateLogger))
 
 	authenticateMw := auth.Authenticate(root.CreateLogger)
 	requireAuthMw := auth.RequireAuthentication()
 
-	mux.Handle("POST /api/v1/orders",
+	handle("POST /api/v1/orders",
 		shared.Chain(
 			authenticateMw,
 			requireAuthMw,
@@ -27,7 +27,7 @@ func addRoutes(mux *http.ServeMux, root *CompositionRoot) {
 				root.ProblemEncoder,
 				root.CreateLogger,
 				root.TimeProvider)))
-	mux.Handle("POST /api/v1/orders/{orderId}/cancel",
+	handle("POST /api/v1/orders/{orderId}/cancel",
 		shared.Chain(
 			authenticateMw,
 			requireAuthMw,
@@ -37,7 +37,7 @@ func addRoutes(mux *http.ServeMux, root *CompositionRoot) {
 				root.ProblemEncoder,
 				root.CreateLogger,
 				root.TimeProvider)))
-	mux.Handle("GET /api/v1/orders/{orderId}",
+	handle("GET /api/v1/orders/{orderId}",
 		shared.Chain(
 			authenticateMw,
 			requireAuthMw,
