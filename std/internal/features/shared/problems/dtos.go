@@ -1,11 +1,10 @@
-package shared
+package problems
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
-	"log/slog"
 	"net/http"
+
+	trace "go.opentelemetry.io/otel/trace"
 )
 
 type Problem struct {
@@ -23,7 +22,7 @@ func NewProblem(ctx context.Context, typ string, status int, title string, detai
 		Status:       status,
 		Title:        title,
 		Detail:       detail,
-		TraceId:      "", // TODO: grab from context
+		TraceId:      getTraceIDFromContext(ctx),
 		ObjectDetail: objectDetail,
 	}
 }
@@ -50,47 +49,15 @@ func NewValidationProblem(ctx context.Context, title string, detail string, erro
 		Status:  http.StatusBadRequest,
 		Title:   title,
 		Detail:  detail,
-		TraceId: "", // TODO: grab from context
+		TraceId: getTraceIDFromContext(ctx),
 		Errors:  errors,
 	}
 }
 
-type ProblemEncoder interface {
-	EncodeProblem(ctx context.Context, w http.ResponseWriter, problem *Problem)
-	EncodeValidationProblem(ctx context.Context, w http.ResponseWriter, validationProblem *ValidationProblem)
-}
-
-type problemEncoder struct {
-	logger *slog.Logger
-}
-
-func NewProblemEncoder(loggerProvider func(string) *slog.Logger) ProblemEncoder {
-	return &problemEncoder{
-		logger: loggerProvider("problem_encoder"),
+func getTraceIDFromContext(ctx context.Context) string {
+	span := trace.SpanFromContext(ctx)
+	if span.SpanContext().IsValid() {
+		return span.SpanContext().TraceID().String()
 	}
-}
-
-func (pe *problemEncoder) EncodeProblem(ctx context.Context, w http.ResponseWriter, problem *Problem) {
-	err := encodeProblem(w, problem.Status, problem)
-	if err != nil {
-		EncodeInternalServerError(ctx, w, pe.logger, err)
-		return
-	}
-}
-
-func (pe *problemEncoder) EncodeValidationProblem(ctx context.Context, w http.ResponseWriter, validationProblem *ValidationProblem) {
-	err := encodeProblem(w, http.StatusBadRequest, validationProblem)
-	if err != nil {
-		EncodeInternalServerError(ctx, w, pe.logger, err)
-		return
-	}
-}
-
-func encodeProblem[T any](w http.ResponseWriter, status int, v T) error {
-	w.Header().Set("Content-Type", "application/problem+json")
-	w.WriteHeader(status)
-	if err := json.NewEncoder(w).Encode(v); err != nil {
-		return fmt.Errorf("encode problem: %w", err)
-	}
-	return nil
+	return ""
 }

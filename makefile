@@ -5,5 +5,12 @@ run-std:
 	APP_ENV=development \
 	go run ./cmd/main.go
 
+run-fiber:
+	cd fiber && \
+	OTEL_RESOURCE_ATTRIBUTES="service.name=fiber-api,service.version=0.0.1" \
+	OTEL_EXPORTER_OTLP_ENDPOINT="http://localhost:4317" \
+	APP_ENV=development \
+	go run ./cmd/main.go
+
 run-deps:
 	docker compose up -d

@@ -40,6 +40,7 @@ func run(
 	defer func(compositionRoot *internal.CompositionRoot, ctx context.Context) {
 		err := compositionRoot.Shutdown(ctx)
 		if err != nil {
+			// TODO: this is returning err "context canceled" when the app is shutting down, need to figure out a way to avoid that
 			logger.ErrorContext(ctx, "error during shutdown", slog.Any("error", err))
 		}
 	}(compositionRoot, ctx)

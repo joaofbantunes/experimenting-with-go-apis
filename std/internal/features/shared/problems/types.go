@@ -1,4 +1,4 @@
-package shared
+package problems
 
 const globalPrefix = "tag:example.com,2025:problems:sample-api/"
 

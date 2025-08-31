@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/joaofbantunes/experimenting-with-go-apis/std/internal/features/orders"
 	"github.com/joaofbantunes/experimenting-with-go-apis/std/internal/features/shared"
+	"github.com/joaofbantunes/experimenting-with-go-apis/std/internal/features/shared/problems"
 )
 
 type request struct {
@@ -16,7 +17,7 @@ type request struct {
 
 func NewCancelOrderEndpoint(
 	db *orders.DataAccess,
-	pe shared.ProblemEncoder,
+	pe problems.ProblemEncoder,
 	loggerProvider func(name string) *slog.Logger,
 	tp shared.TimeProvider) http.Handler {
 	logger := loggerProvider("cancel_order_endpoint")
@@ -36,9 +37,9 @@ func NewCancelOrderEndpoint(
 		}
 
 		if !present {
-			pe.EncodeProblem(r.Context(), w, shared.NewProblem(
+			pe.EncodeProblem(r.Context(), w, problems.NewProblem(
 				r.Context(),
-				shared.ProblemGeneralNotFound,
+				problems.ProblemGeneralNotFound,
 				http.StatusNotFound,
 				"Order not found",
 				"Order not found",
@@ -51,9 +52,9 @@ func NewCancelOrderEndpoint(
 
 		if err != nil {
 			if errors.Is(err, orders.ErrOrderNoLongerCancellable{}) {
-				pe.EncodeProblem(r.Context(), w, shared.NewProblem(
+				pe.EncodeProblem(r.Context(), w, problems.NewProblem(
 					r.Context(),
-					shared.ProblemOrdersNoLongerCancellable,
+					problems.ProblemOrdersNoLongerCancellable,
 					http.StatusUnprocessableEntity,
 					"Order cannot be cancelled",
 					"Only orders with 'registered' status can be cancelled",
@@ -70,14 +71,14 @@ func NewCancelOrderEndpoint(
 		w.WriteHeader(http.StatusNoContent)
 	})
 }
-func decodeAndValidate(r *http.Request) (request, *shared.ValidationProblem) {
+func decodeAndValidate(r *http.Request) (request, *problems.ValidationProblem) {
 	orderId, err := uuid.Parse(r.PathValue("orderId"))
 	if err != nil {
-		return request{}, shared.NewValidationProblem(
+		return request{}, problems.NewValidationProblem(
 			r.Context(),
 			"Invalid request",
 			"Invalid request",
-			[]shared.ValidationError{
+			[]problems.ValidationError{
 				{
 					Description: "Invalid order id",
 					Parameter:   "orderId",

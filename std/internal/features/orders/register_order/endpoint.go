@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/joaofbantunes/experimenting-with-go-apis/std/internal/features/orders"
 	"github.com/joaofbantunes/experimenting-with-go-apis/std/internal/features/shared"
+	"github.com/joaofbantunes/experimenting-with-go-apis/std/internal/features/shared/problems"
 )
 
 type orderItem struct {
@@ -30,7 +31,7 @@ type unknownDishesError struct {
 
 func NewRegisterOrderEndpoint(
 	db *orders.DataAccess,
-	pe shared.ProblemEncoder,
+	pe problems.ProblemEncoder,
 	loggerProvider func(name string) *slog.Logger,
 	tp shared.TimeProvider) http.Handler {
 	logger := loggerProvider("register_order_endpoint")
@@ -76,7 +77,7 @@ func NewRegisterOrderEndpoint(
 	})
 }
 
-func encodeUnknownDishes(w http.ResponseWriter, r *http.Request, dishIds []uuid.UUID, dishRefs map[uuid.UUID]orders.DishRef, pe shared.ProblemEncoder) {
+func encodeUnknownDishes(w http.ResponseWriter, r *http.Request, dishIds []uuid.UUID, dishRefs map[uuid.UUID]orders.DishRef, pe problems.ProblemEncoder) {
 	missingIds := make([]uuid.UUID, 0)
 	for _, id := range dishIds {
 		if _, ok := dishRefs[id]; !ok {
@@ -86,9 +87,9 @@ func encodeUnknownDishes(w http.ResponseWriter, r *http.Request, dishIds []uuid.
 	pe.EncodeProblem(
 		r.Context(),
 		w,
-		shared.NewProblem(
+		problems.NewProblem(
 			r.Context(),
-			shared.ProblemOrdersUnknownDishes,
+			problems.ProblemOrdersUnknownDishes,
 			http.StatusUnprocessableEntity,
 			"Some dishes are not known",
 			"Some dishes are not known",
@@ -116,14 +117,14 @@ func mapOrderItems(items []orderItem) []orders.OrderItem {
 	return result
 }
 
-func decodeAndValidate(r *http.Request) (request, *shared.ValidationProblem) {
+func decodeAndValidate(r *http.Request) (request, *problems.ValidationProblem) {
 	b, err := shared.Decode[body](r)
 	if err != nil {
-		return request{}, shared.NewValidationProblem(
+		return request{}, problems.NewValidationProblem(
 			r.Context(),
 			"Invalid request",
 			"Invalid request",
-			[]shared.ValidationError{
+			[]problems.ValidationError{
 				{
 					Description: "Invalid request body",
 					Pointer:     shared.RootPointer.String(),
@@ -131,9 +132,9 @@ func decodeAndValidate(r *http.Request) (request, *shared.ValidationProblem) {
 			},
 		)
 	}
-	errors := make([]shared.ValidationError, 0)
+	errors := make([]problems.ValidationError, 0)
 	if len(b.Items) == 0 {
-		errors = append(errors, shared.ValidationError{
+		errors = append(errors, problems.ValidationError{
 			Description: "At least one item is required",
 			Pointer:     shared.JsonPointerForSegments([]string{"items"}).String(),
 		})
@@ -141,19 +142,19 @@ func decodeAndValidate(r *http.Request) (request, *shared.ValidationProblem) {
 
 	for i, item := range b.Items {
 		if item.DishID == uuid.Nil {
-			errors = append(errors, shared.ValidationError{
+			errors = append(errors, problems.ValidationError{
 				Description: "Order item missing dish is required",
 				Pointer:     shared.JsonPointerForSegments([]string{"items", strconv.Itoa(i), "dishId"}).String(),
 			})
 		}
 		if item.Quantity <= 0 {
-			errors = append(errors, shared.ValidationError{
+			errors = append(errors, problems.ValidationError{
 				Description: "Order item quantity must be greater than zero",
 				Pointer:     shared.JsonPointerForSegments([]string{"items", strconv.Itoa(i), "quantity"}).String(),
 			})
 		}
 		if item.Quantity > 100 {
-			errors = append(errors, shared.ValidationError{
+			errors = append(errors, problems.ValidationError{
 				Description: "Order item quantity must be less than or equal to 100",
 				Pointer:     shared.JsonPointerForSegments([]string{"items", strconv.Itoa(i), "quantity"}).String(),
 			})
@@ -161,7 +162,7 @@ func decodeAndValidate(r *http.Request) (request, *shared.ValidationProblem) {
 	}
 
 	if len(errors) > 0 {
-		return request{}, shared.NewValidationProblem(
+		return request{}, problems.NewValidationProblem(
 			r.Context(),
 			"Invalid request",
 			"Invalid request",

@@ -5,9 +5,7 @@ import (
 	"io"
 	"log/slog"
 
-	"github.com/joaofbantunes/experimenting-with-go-apis/std/internal/features/orders"
-	"github.com/joaofbantunes/experimenting-with-go-apis/std/internal/features/shared"
-	"github.com/joaofbantunes/experimenting-with-go-apis/std/internal/features/shared/problems"
+	"github.com/joaofbantunes/experimenting-with-go-apis/fiber/internal/features/shared"
 	slogmulti "github.com/samber/slog-multi"
 	"go.opentelemetry.io/contrib/bridges/otelslog"
 	"go.opentelemetry.io/otel/metric"
@@ -15,12 +13,10 @@ import (
 )
 
 type CompositionRoot struct {
-	Config           *Config
-	OrdersDataAccess *orders.DataAccess
-	ProblemEncoder   problems.ProblemEncoder
-	TimeProvider     shared.TimeProvider
-	O11y             *O11yContext
-	stdout           io.Writer
+	Config       *Config
+	TimeProvider shared.TimeProvider
+	O11y         *O11yContext
+	stdout       io.Writer
 }
 
 func (root *CompositionRoot) CreateLogger(name string) *slog.Logger {
@@ -51,24 +47,14 @@ func NewCompositionRoot(
 		return nil, err
 	}
 
-	pool, err := CreatePool(ctx, config)
-	if err != nil {
-		return nil, err
-	}
-
 	root := &CompositionRoot{
 		Config:       config,
 		O11y:         o11y,
 		TimeProvider: shared.NewSystemTimeProvider(),
 		stdout:       stdout,
 	}
-	root.ProblemEncoder = problems.NewProblemEncoder(root.CreateLogger)
-	root.OrdersDataAccess = orders.NewDataAccess(pool, root.CreateLogger)
 
-	err = MigrateDB(ctx, pool, root.CreateLogger("migrations"), root.CreateTracer("migrations"))
-	if err != nil {
-		return nil, err
-	}
+	// TODO: complete init
 
 	return root, nil
 }

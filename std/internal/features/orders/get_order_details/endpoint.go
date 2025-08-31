@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/joaofbantunes/experimenting-with-go-apis/std/internal/features/orders"
 	"github.com/joaofbantunes/experimenting-with-go-apis/std/internal/features/shared"
+	"github.com/joaofbantunes/experimenting-with-go-apis/std/internal/features/shared/problems"
 )
 
 type request struct {
@@ -26,7 +27,7 @@ type response struct {
 
 func NewGetOrderDetailsEndpoint(
 	db *orders.DataAccess,
-	pe shared.ProblemEncoder,
+	pe problems.ProblemEncoder,
 	loggerProvider func(name string) *slog.Logger,
 ) http.Handler {
 	logger := loggerProvider("get_order_details_endpoint")
@@ -46,9 +47,9 @@ func NewGetOrderDetailsEndpoint(
 		}
 
 		if !present {
-			pe.EncodeProblem(r.Context(), w, shared.NewProblem(
+			pe.EncodeProblem(r.Context(), w, problems.NewProblem(
 				r.Context(),
-				shared.ProblemGeneralNotFound,
+				problems.ProblemGeneralNotFound,
 				http.StatusNotFound,
 				"Order not found",
 				"Order not found",
@@ -81,14 +82,14 @@ func NewGetOrderDetailsEndpoint(
 	})
 }
 
-func decodeAndValidate(r *http.Request) (request, *shared.ValidationProblem) {
+func decodeAndValidate(r *http.Request) (request, *problems.ValidationProblem) {
 	orderId, err := uuid.Parse(r.PathValue("orderId"))
 	if err != nil {
-		return request{}, shared.NewValidationProblem(
+		return request{}, problems.NewValidationProblem(
 			r.Context(),
 			"Invalid request",
 			"Invalid request",
-			[]shared.ValidationError{
+			[]problems.ValidationError{
 				{
 					Description: "Invalid order id",
 					Parameter:   "orderId",

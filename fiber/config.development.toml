@@ -1,0 +1,4 @@
+[database]
+baseConnStr = "postgres://{user}:{password}@localhost:5432/experimenting_with_fiber_apis?sslmode=disable"
+user = "user"
+password = "pass"

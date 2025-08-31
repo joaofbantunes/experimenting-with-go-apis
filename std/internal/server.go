@@ -11,17 +11,21 @@ import (
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
-func NewServer(compositionRoot *CompositionRoot) http.Handler {
+func NewServer(root *CompositionRoot) http.Handler {
 	mux := http.NewServeMux()
 
-	// replacement for mux.Handle to enrich traces with route pattern
+	// replacement for mux.Handle to add OpenTelemetry instrumentation
 	handle := func(pattern string, handler http.Handler) {
-		instrumented := otelhttp.NewHandler(handler, pattern)
+		instrumented := otelhttp.NewHandler(
+			handler,
+			pattern,
+			otelhttp.WithTracerProvider(root.O11y.TracerProvider),
+			otelhttp.WithMeterProvider(root.O11y.MeterProvider))
 		instrumented = otelhttp.WithRouteTag(pattern, instrumented)
 		mux.Handle(pattern, instrumented)
 	}
-	addRoutes(handle, compositionRoot)
-	addScalar(handle, compositionRoot.CreateLogger("scalar"))
+	addRoutes(handle, root)
+	addScalar(handle, root.CreateLogger("scalar"))
 	return mux
 }
 
