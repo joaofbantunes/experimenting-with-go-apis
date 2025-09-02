@@ -10,6 +10,7 @@ import (
 	"go.opentelemetry.io/contrib/bridges/otelslog"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/trace"
+	"gorm.io/gorm"
 )
 
 type CompositionRoot struct {
@@ -17,6 +18,7 @@ type CompositionRoot struct {
 	TimeProvider shared.TimeProvider
 	O11y         *O11yContext
 	stdout       io.Writer
+	DB           *gorm.DB
 }
 
 func (root *CompositionRoot) CreateLogger(name string) *slog.Logger {
@@ -47,14 +49,23 @@ func NewCompositionRoot(
 		return nil, err
 	}
 
+	db, err := CreateDb(ctx, config)
+	if err != nil {
+		return nil, err
+	}
+
 	root := &CompositionRoot{
 		Config:       config,
 		O11y:         o11y,
 		TimeProvider: shared.NewSystemTimeProvider(),
 		stdout:       stdout,
+		DB:           db,
 	}
 
-	// TODO: complete init
+	err = MigrateDB(ctx, db, root.CreateLogger("migrations"), root.CreateTracer("migrations"))
+	if err != nil {
+		return nil, err
+	}
 
 	return root, nil
 }

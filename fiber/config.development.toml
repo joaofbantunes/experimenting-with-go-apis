@@ -1,4 +1,4 @@
 [database]
-baseConnStr = "postgres://{user}:{password}@localhost:5432/experimenting_with_fiber_apis?sslmode=disable"
+baseConnStr = "host=localhost user={user} password={password} dbname=experimenting_with_fiber_apis port=5432 sslmode=disable"
 user = "user"
 password = "pass"
