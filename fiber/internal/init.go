@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/joaofbantunes/experimenting-with-go-apis/fiber/internal/features/shared/domain"
+	"github.com/joaofbantunes/experimenting-with-go-apis/fiber/internal/features/shared/outbox"
 	"go.opentelemetry.io/otel/trace"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -36,5 +37,6 @@ func MigrateDB(ctx context.Context, db *gorm.DB, logger *slog.Logger, tracer tra
 		&domain.Order{},
 		&domain.Dish{},
 		&domain.OrderItem{},
+		&outbox.OutboxMessage{},
 	)
 }

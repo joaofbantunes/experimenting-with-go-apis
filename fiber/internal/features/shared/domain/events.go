@@ -7,12 +7,12 @@ import (
 )
 
 type OrderRegisteredItem struct {
-	DishId   uuid.UUID
+	DishID   uuid.UUID
 	Quantity uint8
 }
 
 type OrderRegistered struct {
-	OrderId    uuid.UUID
+	OrderID    uuid.UUID
 	Items      []OrderRegisteredItem
 	OccurredAt time.Time
 }

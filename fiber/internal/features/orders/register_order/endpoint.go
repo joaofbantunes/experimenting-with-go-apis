@@ -3,14 +3,13 @@ package register_order
 import (
 	"context"
 	"log/slog"
-	"net/http"
 	"strconv"
-	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 	"github.com/joaofbantunes/experimenting-with-go-apis/fiber/internal/features/shared"
 	"github.com/joaofbantunes/experimenting-with-go-apis/fiber/internal/features/shared/domain"
+	"github.com/joaofbantunes/experimenting-with-go-apis/fiber/internal/features/shared/outbox"
 	"github.com/joaofbantunes/experimenting-with-go-apis/fiber/internal/features/shared/problems"
 	"gorm.io/gorm"
 )
@@ -53,60 +52,41 @@ func NewRegisterOrderEndpoint(
 			return createUnknownDishesError(c.UserContext(), dishIds, dishes)
 		}
 		now := tp.Now()
-		order := createOrder(r, dishes, now)
-		event := createEvent(order, now)
-		err = saveOrder(err, db, order, event)
+		order, event := domain.RegisterOrder(mapOrderItems(r.Body.Items, dishes), now)
+		err = saveOrder(c.UserContext(), db, order, event)
 		if err != nil {
 			return err
 		}
-		return c.Status(http.StatusCreated).JSON(response{ID: order.ExternalID})
+		return c.Status(fiber.StatusCreated).JSON(response{ID: order.ExternalID})
 	}
 }
 
-func createOrder(r request, dishes map[uuid.UUID]domain.Dish, now time.Time) *domain.Order {
-	order := &domain.Order{
-		ExternalID:   uuid.New(),
-		Status:       domain.OrderStatusRegistered,
-		Items:        make([]domain.OrderItem, len(r.Body.Items)),
-		RegisteredAt: now,
-	}
-	for i, item := range r.Body.Items {
+func mapOrderItems(items []orderItem, dishes map[uuid.UUID]domain.Dish) []domain.OrderItem {
+	orderItems := make([]domain.OrderItem, len(items))
+	for i, item := range items {
 		dish := dishes[item.DishID]
-		order.Items[i] = domain.OrderItem{
-			DishID:   dish.ID,
+		orderItems[i] = domain.OrderItem{
 			Dish:     dish,
 			Quantity: uint8(item.Quantity),
 		}
 	}
-	return order
+	return orderItems
 }
 
-func createEvent(order *domain.Order, now time.Time) *domain.OrderRegistered {
-	event := &domain.OrderRegistered{
-		OrderId:    order.ExternalID,
-		OccurredAt: now,
-		Items:      make([]domain.OrderRegisteredItem, len(order.Items)),
-	}
-	for i, item := range order.Items {
-		event.Items[i] = domain.OrderRegisteredItem{
-			DishId:   item.Dish.ExternalID,
-			Quantity: item.Quantity,
-		}
-	}
-	return event
-}
-
-func saveOrder(err error, db *gorm.DB, order *domain.Order, event *domain.OrderRegistered) error {
-	err = db.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Create(order).Error; err != nil {
+func saveOrder(ctx context.Context, db *gorm.DB, order *domain.Order, event *domain.OrderRegistered) error {
+	return db.Transaction(func(tx *gorm.DB) error {
+		if err := gorm.G[domain.Order](tx).Create(ctx, order); err != nil {
 			return err
 		}
-		if err := tx.Create(event).Error; err != nil {
+		msg, err := outbox.MapMsg(order, event)
+		if err != nil {
+			return err
+		}
+		if err := gorm.G[outbox.OutboxMessage](tx).Create(ctx, msg); err != nil {
 			return err
 		}
 		return nil
 	})
-	return err
 }
 
 func queryDishesByID(ctx context.Context, db *gorm.DB, dishIds []uuid.UUID) (map[uuid.UUID]domain.Dish, error) {
@@ -140,7 +120,7 @@ func createUnknownDishesError(ctx context.Context, dishIds []uuid.UUID, dishes m
 	return problems.NewProblemError(
 		ctx,
 		problems.ProblemOrdersUnknownDishes,
-		http.StatusUnprocessableEntity,
+		fiber.StatusUnprocessableEntity,
 		"Some dishes are not known",
 		"Some dishes are not known",
 		unknownDishesError{DishIds: missingIds},

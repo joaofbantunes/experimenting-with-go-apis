@@ -56,7 +56,7 @@ func (o *Order) Cancel(now time.Time) (*Order, *OrderCancelled, error) {
 	o.Status = OrderStatusCancelled
 
 	event := &OrderCancelled{
-		OrderId:    o.ID,
+		OrderID:    o.ID,
 		OccurredAt: now,
 	}
 

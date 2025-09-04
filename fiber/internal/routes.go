@@ -28,5 +28,6 @@ func addRoutes(app *fiber.App, root *CompositionRoot) {
 		auth.RequirePermission("orders.register", root.CreateLogger),
 		register_order.NewRegisterOrderEndpoint(
 			root.CreateLogger,
+			root.DB,
 			root.TimeProvider))
 }

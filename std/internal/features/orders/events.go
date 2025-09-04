@@ -18,6 +18,6 @@ type OrderRegistered struct {
 }
 
 type OrderCancelled struct {
-	OrderId    uuid.UUID
+	OrderID    uuid.UUID
 	OccurredAt time.Time
 }
