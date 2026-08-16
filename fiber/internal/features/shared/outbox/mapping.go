@@ -2,7 +2,6 @@ package outbox
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 
 	"github.com/joaofbantunes/experimenting-with-go-apis/fiber/internal/features/shared/domain"
@@ -15,7 +14,7 @@ func MapMsg(o *domain.Order, event any) (*OutboxMessage, error) {
 	case *domain.OrderCancelled:
 		return mapCancelledMsg(o, e)
 	default:
-		return nil, errors.New(fmt.Sprintf("unsupported message type: %T", e))
+		return nil, fmt.Errorf("unsupported message type: %T", e)
 	}
 }
 

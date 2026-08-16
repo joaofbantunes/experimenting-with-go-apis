@@ -203,7 +203,7 @@ func (db *DataAccess) mapMsg(o *Order, event any) (shared.OutboxMessage, error) 
 	case *OrderCancelled:
 		return db.mapCancelledMsg(o, e)
 	default:
-		return shared.OutboxMessage{}, errors.New(fmt.Sprintf("unsupported message type: %T", e))
+		return shared.OutboxMessage{}, fmt.Errorf("unsupported message type: %T", e)
 	}
 }
 

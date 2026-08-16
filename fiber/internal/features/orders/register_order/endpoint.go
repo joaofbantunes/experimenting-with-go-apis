@@ -63,8 +63,7 @@ func NewRegisterOrderEndpoint(
 func mapOrderItems(items []orderItem, dishes map[uuid.UUID]*domain.Dish) []*domain.OrderItem {
 	orderItems := make([]*domain.OrderItem, len(items))
 	for i, item := range items {
-		dish := dishes[item.DishID]
-		orderItems[i] = domain.NewOrderItem(dish, uint8(item.Quantity))
+		orderItems[i] = domain.NewOrderItem(dishes[item.DishID], uint8(item.Quantity))
 	}
 	return orderItems
 }
