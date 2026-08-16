@@ -49,7 +49,7 @@ func NewCompositionRoot(
 		return nil, err
 	}
 
-	db, err := CreateDb(ctx, config)
+	db, err := CreateDb(ctx, config, o11y.TracerProvider)
 	if err != nil {
 		return nil, err
 	}

@@ -61,14 +61,11 @@ func NewRegisterOrderEndpoint(
 	}
 }
 
-func mapOrderItems(items []orderItem, dishes map[uuid.UUID]domain.Dish) []domain.OrderItem {
-	orderItems := make([]domain.OrderItem, len(items))
+func mapOrderItems(items []orderItem, dishes map[uuid.UUID]*domain.Dish) []*domain.OrderItem {
+	orderItems := make([]*domain.OrderItem, len(items))
 	for i, item := range items {
 		dish := dishes[item.DishID]
-		orderItems[i] = domain.OrderItem{
-			Dish:     dish,
-			Quantity: uint8(item.Quantity),
-		}
+		orderItems[i] = domain.NewOrderItem(dish, uint8(item.Quantity))
 	}
 	return orderItems
 }
@@ -89,13 +86,13 @@ func saveOrder(ctx context.Context, db *gorm.DB, order *domain.Order, event *dom
 	})
 }
 
-func queryDishesByID(ctx context.Context, db *gorm.DB, dishIds []uuid.UUID) (map[uuid.UUID]domain.Dish, error) {
-	var dishes []domain.Dish
-	dishes, err := gorm.G[domain.Dish](db).Where("external_id IN ?", dishIds).Find(ctx)
+func queryDishesByID(ctx context.Context, db *gorm.DB, dishIds []uuid.UUID) (map[uuid.UUID]*domain.Dish, error) {
+	var dishes []*domain.Dish
+	dishes, err := gorm.G[*domain.Dish](db).Where("external_id IN ?", dishIds).Find(ctx)
 	if err != nil {
 		return nil, err
 	}
-	dishMap := make(map[uuid.UUID]domain.Dish, len(dishes))
+	dishMap := make(map[uuid.UUID]*domain.Dish, len(dishes))
 	for _, dish := range dishes {
 		dishMap[dish.ExternalID] = dish
 	}
@@ -110,7 +107,7 @@ func getDishIds(items []orderItem) []uuid.UUID {
 	return ids
 }
 
-func createUnknownDishesError(ctx context.Context, dishIds []uuid.UUID, dishes map[uuid.UUID]domain.Dish) error {
+func createUnknownDishesError(ctx context.Context, dishIds []uuid.UUID, dishes map[uuid.UUID]*domain.Dish) error {
 	missingIds := make([]uuid.UUID, 0)
 	for _, id := range dishIds {
 		if _, ok := dishes[id]; !ok {

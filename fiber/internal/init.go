@@ -10,16 +10,23 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
+	"gorm.io/plugin/opentelemetry/tracing"
 )
 
-func CreateDb(ctx context.Context, config *Config) (*gorm.DB, error) {
+func CreateDb(ctx context.Context, config *Config, tracerProvider trace.TracerProvider) (*gorm.DB, error) {
 	replacer := strings.NewReplacer(
 		"{user}", config.Database.User,
 		"{password}", config.Database.Password,
 	)
-	return gorm.Open(
+	db, err := gorm.Open(
 		postgres.Open(replacer.Replace(config.Database.BaseConnStr)),
 		&gorm.Config{})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return db, db.Use(tracing.NewPlugin(tracing.WithTracerProvider(tracerProvider)))
 }
 
 func MigrateDB(ctx context.Context, db *gorm.DB, logger *slog.Logger, tracer trace.Tracer) error {
@@ -33,10 +40,12 @@ func MigrateDB(ctx context.Context, db *gorm.DB, logger *slog.Logger, tracer tra
 	// so would need to investigate how to work around this
 	// for now, letting it use the default string
 
-	return db.AutoMigrate(
+	err := db.AutoMigrate(
 		&domain.Order{},
 		&domain.Dish{},
 		&domain.OrderItem{},
 		&outbox.OutboxMessage{},
 	)
+
+	return err
 }
