@@ -3,7 +3,6 @@ package register_order
 import (
 	"context"
 	"log/slog"
-	"strconv"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
@@ -126,8 +125,7 @@ func createUnknownDishesError(ctx context.Context, dishIds []uuid.UUID, dishes m
 
 func decodeAndValidate(c *fiber.Ctx) (request, error) {
 	var b body
-	err := c.BodyParser(&b)
-	if err != nil {
+	if err := c.BodyParser(&b); err != nil {
 		return request{}, problems.NewValidationProblemError(
 			c.UserContext(),
 			"Invalid request",
@@ -140,42 +138,25 @@ func decodeAndValidate(c *fiber.Ctx) (request, error) {
 			},
 		)
 	}
-	errors := make([]problems.ValidationError, 0)
-	if len(b.Items) == 0 {
-		errors = append(errors, problems.ValidationError{
-			Description: "At least one item is required",
-			Pointer:     shared.JsonPointerForSegments([]string{"items"}).String(),
-		})
-	}
 
+	v := shared.NewValidator(c.UserContext())
+	v.Required(shared.NewJSONPointerBuilder().Key("items").Build(), len(b.Items) > 0, "At least one item is required")
 	for i, item := range b.Items {
-		if item.DishID == uuid.Nil {
-			errors = append(errors, problems.ValidationError{
-				Description: "Order item missing dish is required",
-				Pointer:     shared.JsonPointerForSegments([]string{"items", strconv.Itoa(i), "dishId"}).String(),
-			})
-		}
-		if item.Quantity <= 0 {
-			errors = append(errors, problems.ValidationError{
-				Description: "Order item quantity must be greater than zero",
-				Pointer:     shared.JsonPointerForSegments([]string{"items", strconv.Itoa(i), "quantity"}).String(),
-			})
-		}
-		if item.Quantity > 100 {
-			errors = append(errors, problems.ValidationError{
-				Description: "Order item quantity must be less than or equal to 100",
-				Pointer:     shared.JsonPointerForSegments([]string{"items", strconv.Itoa(i), "quantity"}).String(),
-			})
-		}
-	}
-
-	if len(errors) > 0 {
-		return request{}, problems.NewValidationProblemError(
-			c.UserContext(),
-			"Invalid request",
-			"Invalid request",
-			errors,
+		v.Required(
+			shared.NewJSONPointerBuilder().Key("items").Index(i).Key("dishId").Build(),
+			item.DishID != uuid.Nil,
+			"Order item missing dish is required",
 		)
+		v.InRange(
+			shared.NewJSONPointerBuilder().Key("items").Index(i).Key("quantity").Build(),
+			item.Quantity,
+			1,
+			100,
+			"Order item quantity must be between 1 and 100",
+		)
+	}
+	if err := v.ToError("Invalid request"); err != nil {
+		return request{}, err
 	}
 
 	return request{Body: b}, nil

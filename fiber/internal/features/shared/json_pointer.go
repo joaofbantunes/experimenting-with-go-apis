@@ -1,20 +1,61 @@
 package shared
 
-const RootPointer = JSONPointer("#")
+import (
+	"fmt"
+	"strconv"
+	"strings"
+)
 
-type JSONPointer string
-
-func (jp JSONPointer) String() string {
-	return string(jp)
+type JSONPointer interface {
+	fmt.Stringer
 }
 
-func JsonPointerForSegments(segments []string) JSONPointer {
-	if len(segments) == 0 {
-		return RootPointer
+type jsonPointer struct {
+	segments []any
+}
+
+var RootPointer JSONPointer = &jsonPointer{segments: []any{}}
+
+func (jp jsonPointer) String() string {
+	var b strings.Builder
+	b.WriteString("#")
+	for _, segment := range jp.segments {
+		b.WriteString("/")
+		switch v := segment.(type) {
+		case string:
+			b.WriteString(v)
+		case int:
+			b.WriteString(strconv.Itoa(v))
+		}
 	}
-	pointer := RootPointer.String()
-	for _, segment := range segments {
-		pointer += "/" + segment
-	}
-	return JSONPointer(pointer)
+	return b.String()
+}
+
+type JSONPointerBuilder interface {
+	Key(key string) JSONPointerBuilder
+	Index(index int) JSONPointerBuilder
+	Build() JSONPointer
+}
+
+type jsonPointerBuilder struct {
+	segments []any
+}
+
+func NewJSONPointerBuilder() JSONPointerBuilder {
+	return &jsonPointerBuilder{}
+}
+
+func (b *jsonPointerBuilder) Key(key string) JSONPointerBuilder {
+	b.segments = append(b.segments, key)
+	return b
+}
+
+func (b *jsonPointerBuilder) Index(index int) JSONPointerBuilder {
+	b.segments = append(b.segments, index)
+	return b
+}
+
+func (b *jsonPointerBuilder) Build() JSONPointer {
+	// because we're not making a copy of the segment slice, the builder should not be reused after calling Build()
+	return &jsonPointer{segments: b.segments}
 }
